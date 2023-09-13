@@ -1,0 +1,7 @@
+Flask~=2.3.3
+torch~=2.0.1
+Pillow~=9.5.0
+flask_openapi3~=2.5.1
+open_clip_torch
+transformers==4.30.2
+urllib3==1.26.6
