@@ -1,5 +1,8 @@
-# my_blueprint.py
+import base64
+from io import BytesIO
+
 from apiflask import APIBlueprint
+from flask import request
 
 from core.main import device as device
 
@@ -26,13 +29,17 @@ def clip_text(text):
     return feature
 
 
-@open_clip_lion.get("/retrieve/clip/image/<string:path>")
-@open_clip_lion.doc(summary="CLIP endpoint for feature extraction on image")
-def clip_image(path):
-    if path is None:
+@open_clip_lion.post("/retrieve/clip/image")
+@open_clip_lion.doc(
+    summary="CLIP endpoint for feature extraction on image, where the image is transmitted in the body by a data URL")
+def clip_image():
+    data = request.form['data']
+    header, encoded = data.split("base64,", 1)
+    image = Image.open(BytesIO(base64.b64decode(encoded)))
+    if image is None:
         feature = "[]"
     else:
-        feature = json.dumps(feature_image(path).tolist())
+        feature = json.dumps(feature_image(image).tolist())
     return feature
 
 
@@ -44,9 +51,8 @@ def feature_text(query):
         return text_features.cpu().numpy().flatten()
 
 
-def feature_image(img):
-    print("Image " + img)
-    img = preprocess(Image.open(img)).unsqueeze(0).to(device)
+def feature_image(image):
+    img = preprocess(image).unsqueeze(0).to(device)
     with torch.no_grad():
         image_features = model.encode_image(img)
         image_features /= image_features.norm(dim=-1, keepdim=True)
