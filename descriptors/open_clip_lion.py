@@ -21,7 +21,6 @@ tokenizer = open_clip.get_tokenizer('xlm-roberta-base-ViT-B-32')
 @open_clip_lion.doc(summary="CLIP endpoint for feature extraction on text")
 def clip_text():
     data = request.form.get('data', '')
-    print(data)
     header, encoded = data.split("utf-8,", 1)
 
     try:
