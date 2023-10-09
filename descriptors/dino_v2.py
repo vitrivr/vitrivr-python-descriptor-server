@@ -24,7 +24,7 @@ transform_image = transforms.Compose([
 ])
 
 
-@dino_v2.post("/retrieve/dino")
+@dino_v2.post("/extract/dino")
 @dino_v2.doc(
     summary="DINOv2 endpoint for feature extraction on image, where the image is transmitted in the body by a data URL"
 )

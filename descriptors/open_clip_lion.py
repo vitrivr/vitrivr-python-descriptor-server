@@ -17,7 +17,7 @@ model = model.to(device)
 tokenizer = open_clip.get_tokenizer('xlm-roberta-base-ViT-B-32')
 
 
-@open_clip_lion.post("/retrieve/clip/text")
+@open_clip_lion.post("/extract/clip/text")
 @open_clip_lion.doc(summary="CLIP endpoint for feature extraction on text")
 def clip_text():
     data = request.form.get('data', '')
@@ -32,7 +32,7 @@ def clip_text():
     return feature
 
 
-@open_clip_lion.post("/retrieve/clip/image")
+@open_clip_lion.post("/extract/clip/image")
 @open_clip_lion.doc(
     summary="CLIP endpoint for feature extraction on image, where the image is transmitted in the body by a data URL"
 )
