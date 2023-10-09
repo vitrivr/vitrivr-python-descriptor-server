@@ -7,6 +7,7 @@ from core.main import device
 import open_clip
 import torch
 from PIL import Image
+import urllib
 
 open_clip_lion = APIBlueprint('open_clip_lion', __name__)
 
@@ -16,10 +17,19 @@ model = model.to(device)
 tokenizer = open_clip.get_tokenizer('xlm-roberta-base-ViT-B-32')
 
 
-@open_clip_lion.get("/retrieve/clip/text/<string:text>")
+@open_clip_lion.post("/retrieve/clip/text")
 @open_clip_lion.doc(summary="CLIP endpoint for feature extraction on text")
-def clip_text(text):
-    feature = "[]" if text is None else json.dumps(feature_text(text).tolist())
+def clip_text():
+    data = request.form.get('data', '')
+    print(data)
+    header, encoded = data.split("utf-8,", 1)
+
+    try:
+        text = urllib.parse.unquote(encoded)
+    except Exception as e:
+        print(f"Error decoding text: {e}")
+        return "[]"
+    feature = "[]" if text is None else json.dumps(feature_text("this is just a first example").tolist())
     return feature
 
 
