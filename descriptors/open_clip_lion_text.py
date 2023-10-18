@@ -16,7 +16,7 @@ model = model.to(device)
 tokenizer = open_clip.get_tokenizer('xlm-roberta-base-ViT-B-32')
 
 
-@open_clip_lion_text.post("/extract/cliptext")
+@open_clip_lion_text.post("/extract/clip_text")
 @open_clip_lion_text.doc(summary="CLIP endpoint for feature extraction on text")
 def clip_text():
     data = request.form.get('data', '')
