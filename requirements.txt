@@ -3,3 +3,4 @@ Pillow~=9.5.0
 apiflask==2.0.2
 torchvision~=0.15.0
 flask~=2.3.3
+open-clip-torch==2.23.0

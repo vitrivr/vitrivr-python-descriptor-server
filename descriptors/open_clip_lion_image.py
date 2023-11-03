@@ -8,7 +8,8 @@ from PIL import Image
 from apiflask import APIBlueprint
 from flask import request
 
-from core.main import device
+#from main import device #FIXME cyclic dependency
+device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
 open_clip_lion_image = APIBlueprint('open_clip_lion_image', __name__)
 
