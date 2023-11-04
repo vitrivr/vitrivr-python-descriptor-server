@@ -7,6 +7,7 @@ import torch
 from PIL import Image
 from apiflask import APIBlueprint
 from flask import request
+import gc
 
 #from main import device #FIXME cyclic dependency
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
@@ -41,4 +42,5 @@ def feature_image(image):
     with torch.no_grad():
         image_features = model.encode_image(img)
         image_features /= image_features.norm(dim=-1, keepdim=True)
+        gc.collect()
         return image_features.cpu().numpy().flatten()

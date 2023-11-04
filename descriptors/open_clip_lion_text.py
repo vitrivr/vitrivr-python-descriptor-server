@@ -5,6 +5,7 @@ import open_clip
 import torch
 from apiflask import APIBlueprint
 from flask import request
+import gc
 
 #from main import device #FIXME cyclic dependency
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
@@ -37,4 +38,5 @@ def feature_text(query):
     with torch.no_grad():
         text_features = model.encode_text(text)
         text_features /= text_features.norm(dim=-1, keepdim=True)
+        gc.collect()
         return text_features.cpu().numpy().flatten()

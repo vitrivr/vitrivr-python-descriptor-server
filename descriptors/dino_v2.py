@@ -7,6 +7,7 @@ import torchvision.transforms as transforms
 from PIL import Image
 from apiflask import APIBlueprint
 from flask import request
+import gc
 
 dino_v2 = APIBlueprint('dino_v2', __name__)
 
@@ -40,5 +41,6 @@ def dino_image():
 
     transformed_img = transform_image(image)[:3].unsqueeze(0)
     feature = dino_model(transformed_img).detach().numpy().flatten().tolist()
+    gc.collect()
 
     return feature
