@@ -1,5 +1,6 @@
 import json
 import urllib
+import base64
 
 import open_clip
 import torch
@@ -25,11 +26,11 @@ def clip_text():
     header, encoded = data.split("utf-8,", 1)
 
     try:
-        text = urllib.parse.unquote(encoded)
+        text = base64.b64decode(encoded).decode("utf-8")
     except Exception as e:
         print(f"Error decoding text: {e}")
         return "[]"
-    feature = "[]" if text is None else json.dumps(feature_text("this is just a first example").tolist())
+    feature = "[]" if text is None else json.dumps(feature_text(text).tolist())
     return feature
 
 
