@@ -37,9 +37,11 @@ def clip_text():
 
 
 def feature_text(query):
+    print(query)
     text = tokenizer(query).to(device)
     with torch.no_grad():
         text_features = model.encode_text(text)
         text_features /= text_features.norm(dim=-1, keepdim=True)
-        gc.collect()
-        return text_features.cpu().numpy().flatten()
+        vec =text_features.cpu().numpy().flatten()
+        print(vec)
+        return vec
