@@ -28,7 +28,7 @@ def clip_text():
 
     try:
         text = base64.b64decode(encoded).decode("utf-8")
-        print(text)
+        # print(text)
     except Exception as e:
         print(f"Error decoding text: {e}")
         return "[]"
@@ -37,11 +37,10 @@ def clip_text():
 
 
 def feature_text(query):
-    print(query)
     text = tokenizer(query).to(device)
     with torch.no_grad():
         text_features = model.encode_text(text)
         text_features /= text_features.norm(dim=-1, keepdim=True)
         vec =text_features.cpu().numpy().flatten()
-        print(vec)
+        # print(vec)
         return vec

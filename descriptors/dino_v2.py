@@ -30,8 +30,6 @@ transform_image = transforms.Compose([
     summary="DINOv2 endpoint for feature extraction on image, where the image is transmitted in the body by a data URL"
 )
 def dino_image():
-    # fkösdkf p
-
     data = request.form.get('data', '')
     header, encoded = data.split("base64,", 1)
 
