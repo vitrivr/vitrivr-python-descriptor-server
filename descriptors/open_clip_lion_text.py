@@ -16,6 +16,7 @@ open_clip_lion_text = APIBlueprint('open_clip_lion_text', __name__)
 model, _, preprocess = open_clip.create_model_and_transforms('xlm-roberta-base-ViT-B-32',
                                                              pretrained='laion5b_s13b_b90k')
 model = model.to(device)
+model.eval()
 tokenizer = open_clip.get_tokenizer('xlm-roberta-base-ViT-B-32')
 
 
@@ -27,6 +28,7 @@ def clip_text():
 
     try:
         text = base64.b64decode(encoded).decode("utf-8")
+        print(text)
     except Exception as e:
         print(f"Error decoding text: {e}")
         return "[]"
