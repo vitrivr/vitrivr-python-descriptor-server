@@ -8,4 +8,6 @@ RUN pip install --no-cache-dir -r requirements.txt
 
 COPY . .
 
-CMD ["python3", "./main.py"]
+EXPOSE 8888
+
+CMD ["python3", "./main.py", "--host", "0.0.0.0"]
