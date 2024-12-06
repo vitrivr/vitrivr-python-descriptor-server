@@ -3,6 +3,7 @@ import argparse
 from apiflask import APIFlask
 
 app = APIFlask(__name__, title='ExternalPython Descriptor Server API for vitrivr', version='1.0.0')
+app.config['MAX_CONTENT_LENGTH'] = 150 * 1024 * 1024
 
 # import necessary modules
 from descriptors.open_clip_lion_text import open_clip_lion_text
