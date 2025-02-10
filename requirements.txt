@@ -1,7 +1,11 @@
-torch~=2.0.1
-Pillow~=9.5.0
-apiflask==2.0.2
-torchvision~=0.15.0
-flask~=2.3.3
-open-clip-torch==2.23.0
-git+https://github.com/huggingface/transformers.git
+torch==2.4.0
+torchvision==0.19.0
+Pillow==10.4.0
+apiflask==2.2.0
+flask==3.0.3
+werkzeug==3.0.3
+numpy==2.0.1
+huggingface-hub==0.24.5
+# Install open-clip from GitHub
+git+https://github.com/mlfoundations/open_clip.git
+transformers==4.44.0
