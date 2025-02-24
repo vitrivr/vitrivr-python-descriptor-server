@@ -2,6 +2,7 @@
 
 ## Dependencies 
 Software    | Version      |
+------------|--------------|
 Python      | 3.9    |
 
 ## In docker
