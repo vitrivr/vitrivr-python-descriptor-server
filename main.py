@@ -1,9 +1,14 @@
 import argparse
 
 from apiflask import APIFlask
+from flask import jsonify
 
 app = APIFlask(__name__, title='ExternalPython Descriptor Server API for vitrivr', version='1.0.0')
 app.config['MAX_CONTENT_LENGTH'] = 150 * 1024 * 1024
+
+@app.route("/health", methods=["GET"])  # Add this
+def health():
+    return jsonify(status="ok")
 
 # import necessary modules
 from descriptors.open_clip_lion_text import open_clip_lion_text
@@ -16,6 +21,7 @@ def register_modules():
     app.register_blueprint(open_clip_lion_text)
     app.register_blueprint(open_clip_lion_image)
     app.register_blueprint(dino_v2)
+
 
 
 def entrypoint(host, port, args):
