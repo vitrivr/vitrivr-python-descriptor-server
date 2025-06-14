@@ -1,8 +1,13 @@
 import argparse
 
 from apiflask import APIFlask
+from flask import jsonify
 
 app = APIFlask(__name__, title='ExternalPython Descriptor Server API for vitrivr', version='1.0.0')
+
+@app.route("/health", methods=["GET"])  # Add thisAdd commentMore actions
+def health():
+    return jsonify(status="ok")
 
 # import necessary modules
 from descriptors.open_clip_lion_text import open_clip_lion_text
