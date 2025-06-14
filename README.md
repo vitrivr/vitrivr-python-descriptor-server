@@ -1,9 +1,9 @@
 # vitrivr-python-descriptor-server
 
 ## Dependencies 
-Software    | Version      |
-------------|--------------|
-Python      | 3.9    |
+Software    | Version     |
+------------|-------------|
+Python      | 3.11-slim    |
 
 ## In docker
 ```bash
