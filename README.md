@@ -15,3 +15,5 @@ The following command builds and runs the docker container. Further it installs 
 ```bash
 sudo docker run -p 3000:3000 $(sudo docker build -q .)
 ```
+> [!NOTE]
+>  On first start the models will be downloaded and output is quite for some time
