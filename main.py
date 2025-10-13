@@ -13,13 +13,14 @@ def health():
 from descriptors.open_clip_lion_text import open_clip_lion_text
 from descriptors.open_clip_lion_image import open_clip_lion_image
 from descriptors.dino_v2 import dino_v2
-
+from descriptors.ocr import ocr
 
 # specify here all modules, that will be needed for feature extraction server
 def register_modules():
     app.register_blueprint(open_clip_lion_text)
     app.register_blueprint(open_clip_lion_image)
     app.register_blueprint(dino_v2)
+    app.register_blueprint(ocr)
 
 
 def entrypoint(host, port, args):
