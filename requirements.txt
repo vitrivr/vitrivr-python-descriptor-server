@@ -12,3 +12,5 @@ git+https://github.com/mlfoundations/open_clip.git
 transformers==4.44.0
 deepface==0.0.95
 tf-keras
+opencv-python==4.12.0.88
+librosa==0.11.0

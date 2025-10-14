@@ -1,4 +1,5 @@
 import argparse
+from importlib import reload
 
 from apiflask import APIFlask
 from flask import jsonify
@@ -23,6 +24,7 @@ def register_modules():
     app.register_blueprint(open_clip_lion_image)
     app.register_blueprint(dino_v2)
     app.register_blueprint(ocr)
+    app.register_blueprint(emotions)
 
 
 def entrypoint(host, port, args):
