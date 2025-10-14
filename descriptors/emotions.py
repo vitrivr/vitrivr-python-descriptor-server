@@ -1,8 +1,5 @@
 import base64
-import os
 from collections import defaultdict
-from io import BytesIO
-
 from PIL import Image
 import cv2
 from deepface import DeepFace
@@ -10,7 +7,6 @@ from transformers import pipeline
 import torch
 from apiflask import APIBlueprint
 from flask import request, jsonify
-import matplotlib as plt
 
 emotions = APIBlueprint('emotions', __name__)
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
