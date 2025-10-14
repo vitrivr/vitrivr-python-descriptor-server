@@ -10,3 +10,5 @@ huggingface-hub==0.24.5
 # Install open-clip from GitHub
 git+https://github.com/mlfoundations/open_clip.git
 transformers==4.44.0
+deepface==0.0.95
+tf-keras
