@@ -24,11 +24,11 @@ def register_modules():
     app.register_blueprint(open_clip_lion_image)
     app.register_blueprint(dino_v2)
     app.register_blueprint(ocr)
-    app.register_blueprint(emotions)
+    #app.register_blueprint(emotions)
 
 
 def entrypoint(host, port, args):
-    app.run(host=host, port=port)
+    app.run(host=host, port=port, debug=True)
 
 
 parser = argparse.ArgumentParser(formatter_class=argparse.ArgumentDefaultsHelpFormatter)
