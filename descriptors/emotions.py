@@ -7,11 +7,74 @@ from transformers import pipeline
 import torch
 from apiflask import APIBlueprint
 from flask import request, jsonify
+import numpy as np
 
 emotions = APIBlueprint('emotions', __name__)
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 emotion_text_classifier = pipeline("sentiment-analysis", model="michellejieli/emotion_text_classifier")
 emotion_face_classifier = pipeline("image-classification", model="trpakov/vit-face-expression")
+
+EMOTION_LABEL_ORDER = ["angry","disgust","fear","happy","neutral","sad","surprise"]
+
+_CANON_MAP = {
+    "anger": "angry",
+    "angry": "angry",
+    "disgust": "disgust",
+    "fear": "fear",
+    "happy": "happy",
+    "joy": "happy",
+    "happiness": "happy",
+    "neutral": "neutral",
+    "sad": "sad",
+    "sadness": "sad",
+    "surprise": "surprise",
+}
+
+def _safe_decode_data_url(data: str, marker: str):
+    """
+    Extracts payload from base64 encoded data
+    :param data: base64 encoded data
+    :param marker: substring that marks the start of the base64 encoded data
+    :return: the raw bytes
+    """
+    if not data or marker not in data:
+        raise ValueError("Invalid data URL")
+    _, encoded = data.split(marker, 1)
+    return base64.b64decode(encoded)
+
+def _normalize_label(lbl: str) -> str:
+    """
+    Normalizes the labels and employs fixed label order.
+    :param lbl: label as string
+    :return: normalized label as string
+    """
+    if not isinstance(lbl, str):
+        return ""
+    return _CANON_MAP.get(lbl.strip().lower(), lbl.strip().lower())
+
+
+def _vectorize_scores(list_of_label_score_dicts):
+    """
+    Vectorizes model outputs into a fixed label order.
+    Accepts a list of dicts like {"label": str, "score": float}.
+    Unknown/missing labels are ignored; missing entries are 0.0.
+    """
+    agg = defaultdict(float)
+
+    for item in list_of_label_score_dicts or []:
+        if not isinstance(item, dict):
+            continue
+        raw = item.get("label", "")
+        label = _normalize_label(raw)
+        if not label:
+            continue
+        try:
+            agg[label] += float(item.get("score", 0.0))
+        except (TypeError, ValueError):
+            continue
+
+    confidences = [float(agg.get(label, 0.0)) for label in EMOTION_LABEL_ORDER]
+    return EMOTION_LABEL_ORDER, confidences
 
 
 def get_emotion_for_image(image, top_k=None):
@@ -26,7 +89,7 @@ def get_emotion_for_image(image, top_k=None):
 @emotions.post("/extract/emotions_face")
 @emotions.doc(summary="Emotions endpoint that checks if face exists (with DeepFace) and then predicts emotion "
                       "for those faces")
-def detect_faces_and_get_emotion_with_plots():
+def detect_faces_and_get_emotion():
     data = request.form.get('data', '')
     if not data or "base64," not in data:
         return jsonify({"error": "No valid data URL provided"}), 400
@@ -36,33 +99,22 @@ def detect_faces_and_get_emotion_with_plots():
 
     try:
         with open(image_path, "wb") as fh:
-            fh.write(base64.b64decode(encoded))
+            fh.write(_safe_decode_data_url(data, "base64,"))
     except Exception as e:
-        print(f"[ERROR] decoding/saving image: {e}")
-        return jsonify({"error": "Could not decode image"}), 400
+        return jsonify({"error": f"Could not decode image: {e}"}), 400
 
     try:
         faces = DeepFace.extract_faces(image_path, detector_backend="retinaface", enforce_detection=True)
     except Exception as e:
-        print(f"[ERROR] DeepFace failed on {image_path}: {e}")
-        return jsonify({'error': str(e)}), 500
-
-    if not faces:
-        return jsonify([])
+        print(f"[ERROR] DeepFace found no face on {image_path}: {e}")
+        return [0.0 for _ in range(len(EMOTION_LABEL_ORDER))]
 
     img = cv2.imread(image_path)
     if img is None:
         return jsonify({"error": "Failed to read saved image"}), 500
-    try:
-        img_rgb = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
-    except Exception as e:
-        print(f"[ERROR] cvtColor failed: {e}")
-        return jsonify({"error": "Color conversion failed"}), 500
+    img_rgb = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
 
-    emotion_sum = defaultdict(float)
-    emotion_count = defaultdict(int)
-    face_count = 0
-
+    agg_scores = defaultdict(list)
     for face_data in faces:
         x1 = face_data["facial_area"]["x"]
         y1 = face_data["facial_area"]["y"]
@@ -72,49 +124,43 @@ def detect_faces_and_get_emotion_with_plots():
 
         x1c = max(0, x1); y1c = max(0, y1)
         x2c = min(img_rgb.shape[1], x2); y2c = min(img_rgb.shape[0], y2)
-        face = img_rgb[y1c:y2c, x1c:x2c]
-        face_pil = Image.fromarray(face)
-        emotions, confidences = get_emotion_for_image(face_pil, top_k=None)
-        for label, score in zip(emotions, confidences):
-            emotion_sum[label] += score
-            emotion_count[label] += 1
+        face_roi = img_rgb[y1c:y2c, x1c:x2c]
+        if face_roi.size == 0:
+            continue
 
-        face_count += 1
+        preds = emotion_face_classifier(Image.fromarray(face_roi), top_k=None)
+        print(preds)
+        if isinstance(preds, dict):
+            preds = [preds]
+        for p in preds:
+            agg_scores[p["label"]].append(float(p["score"]))
 
-    if face_count == 0 or not emotion_sum:
-        return jsonify([])
+    if not agg_scores:
+        return [0.0 for _ in range(len(EMOTION_LABEL_ORDER))]
 
-    emotion_avg = {lbl: (emotion_sum[lbl] / max(1, emotion_count[lbl])) for lbl in emotion_sum}
-    dominant = max(emotion_avg.items(), key=lambda kv: kv[1])[0]
-    confidence = emotion_avg[dominant]
+    averaged = [{"label": lbl, "score": float(np.mean(vals))} for lbl, vals in agg_scores.items()]
 
-    return jsonify({
-        "faces": face_count,
-        "dominant_emotion": dominant,
-        "dominant_confidence": confidence,
-        "per_emotion_avg": emotion_avg,
-        "per_emotion_sum": dict(emotion_sum),
-    })
+    labels, confidences = _vectorize_scores(averaged)
+    return confidences
 
 @emotions.post("/extract/emotions_text")
 @emotions.doc(summary="Emotions endpoint that extract emotions from text")
 def extract_emotions_from_text():
     data = request.form.get("data", "")
     print(f"data: {data}")
-    header, encoded = data.split("utf-8,", 1)
     try:
-        text = base64.b64decode(encoded).decode("utf-8")
-        print(text)
+        raw = _safe_decode_data_url(data, "utf-8,")
+        text = raw.decode("utf-8")
     except Exception as e:
         print(f"[ERROR] Could not base64 encode text: {e}")
-        return "[]"
+        return [0.0 for _ in range(len(EMOTION_LABEL_ORDER))]
 
     try:
         result = emotion_text_classifier(text, top_k=None, truncation=True)
         scores = result if isinstance(result, list) and isinstance(result[0], dict) else result[0]
-        scores_sorted = sorted(scores, key=lambda x: x["score"], reverse=True)
-        return jsonify(scores_sorted)
+        labels, confidences = _vectorize_scores(scores)
+        return confidences
 
     except Exception as e:
         print(f"[ERROR] classification failed: {e}")
-        return jsonify([])
+        return [0.0 for _ in range(len(EMOTION_LABEL_ORDER))]

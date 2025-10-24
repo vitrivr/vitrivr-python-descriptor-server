@@ -28,7 +28,7 @@ def register_modules():
 
 
 def entrypoint(host, port, args):
-    app.run(host=host, port=port, debug=True)
+    app.run(host=host, port=port)
 
 
 parser = argparse.ArgumentParser(formatter_class=argparse.ArgumentDefaultsHelpFormatter)
