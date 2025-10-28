@@ -11,6 +11,7 @@ from apiflask import APIBlueprint
 from flask import request, jsonify
 import numpy as np
 import pytesseract
+import tempfile
 
 emotions = APIBlueprint('emotions', __name__)
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
@@ -97,54 +98,52 @@ def detect_faces_and_get_emotion():
     if not data or "base64," not in data:
         return jsonify({"error": "No valid data URL provided"}), 400
 
-    _, encoded = data.split("base64,", 1)
-    image_path = "emotion.jpg"
-
     try:
-        with open(image_path, "wb") as fh:
-            fh.write(_safe_decode_data_url(data, "base64,"))
+        raw = _safe_decode_data_url(data, "base64,")
+        with tempfile.NamedTemporaryFile(suffix=".jpg", delete=True) as tmp:
+            tmp.write(raw)
+            tmp.flush()
+            try:
+                faces = DeepFace.extract_faces(img_path=tmp.name, detector_backend="retinaface", enforce_detection=True)
+            except Exception as e:
+                print(f"[ERROR] DeepFace found no face on {tmp.name}: {e}")
+                return [0.0 for _ in range(len(EMOTION_LABEL_ORDER))]
+
+            img_bgr = cv2.imread(tmp.name)
+            if img_bgr is None:
+                return jsonify({"error": "Failed to read temp image"}), 500
+            img_rgb = cv2.cvtColor(img_bgr, cv2.COLOR_BGR2RGB)
+
+            agg_scores = defaultdict(list)
+            for face_data in faces:
+                x1 = face_data["facial_area"]["x"]
+                y1 = face_data["facial_area"]["y"]
+                w  = face_data["facial_area"]["w"]
+                h  = face_data["facial_area"]["h"]
+                x2, y2 = x1 + w, y1 + h
+
+                x1c = max(0, x1); y1c = max(0, y1)
+                x2c = min(img_rgb.shape[1], x2); y2c = min(img_rgb.shape[0], y2)
+                face_roi = img_rgb[y1c:y2c, x1c:x2c]
+                if face_roi.size == 0:
+                    continue
+
+                preds = emotion_face_classifier(Image.fromarray(face_roi), top_k=None)
+                if isinstance(preds, dict):
+                    preds = [preds]
+                for p in preds:
+                    agg_scores[p["label"]].append(float(p["score"]))
+
+        if not agg_scores:
+            return jsonify([0.0 for _ in EMOTION_LABEL_ORDER]), 200
+
+        averaged = [{"label": lbl, "score": float(np.mean(vals))} for lbl, vals in agg_scores.items()]
+        labels, confidences = _vectorize_scores(averaged)
+        return jsonify(confidences), 200
+
     except Exception as e:
-        return jsonify({"error": f"Could not decode image: {e}"}), 400
-
-    try:
-        faces = DeepFace.extract_faces(image_path, detector_backend="retinaface", enforce_detection=True)
-    except Exception as e:
-        print(f"[ERROR] DeepFace found no face on {image_path}: {e}")
-        return [0.0 for _ in range(len(EMOTION_LABEL_ORDER))]
-
-    img = cv2.imread(image_path)
-    if img is None:
-        return jsonify({"error": "Failed to read saved image"}), 500
-    img_rgb = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
-
-    agg_scores = defaultdict(list)
-    for face_data in faces:
-        x1 = face_data["facial_area"]["x"]
-        y1 = face_data["facial_area"]["y"]
-        w  = face_data["facial_area"]["w"]
-        h  = face_data["facial_area"]["h"]
-        x2, y2 = x1 + w, y1 + h
-
-        x1c = max(0, x1); y1c = max(0, y1)
-        x2c = min(img_rgb.shape[1], x2); y2c = min(img_rgb.shape[0], y2)
-        face_roi = img_rgb[y1c:y2c, x1c:x2c]
-        if face_roi.size == 0:
-            continue
-
-        preds = emotion_face_classifier(Image.fromarray(face_roi), top_k=None)
-        print(preds)
-        if isinstance(preds, dict):
-            preds = [preds]
-        for p in preds:
-            agg_scores[p["label"]].append(float(p["score"]))
-
-    if not agg_scores:
-        return [0.0 for _ in range(len(EMOTION_LABEL_ORDER))]
-
-    averaged = [{"label": lbl, "score": float(np.mean(vals))} for lbl, vals in agg_scores.items()]
-
-    labels, confidences = _vectorize_scores(averaged)
-    return confidences
+        print(f"[ERROR] emotions_face failed: {e}")
+        return jsonify({"error": f"emotions_face failed: {e}"}), 422
 
 @emotions.post("/extract/emotions_ocr")
 @emotions.doc(summary="Endpoint that extract ocr text from images and then classifies into emotions. Returns vectors. ")
