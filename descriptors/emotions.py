@@ -1,5 +1,7 @@
 import base64
 from collections import defaultdict
+from io import BytesIO
+
 from PIL import Image
 import cv2
 from deepface import DeepFace
@@ -8,6 +10,7 @@ import torch
 from apiflask import APIBlueprint
 from flask import request, jsonify
 import numpy as np
+import pytesseract
 
 emotions = APIBlueprint('emotions', __name__)
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
@@ -142,6 +145,33 @@ def detect_faces_and_get_emotion():
 
     labels, confidences = _vectorize_scores(averaged)
     return confidences
+
+@emotions.post("/extract/emotions_ocr")
+@emotions.doc(summary="Endpoint that extract ocr text from images and then classifies into emotions. Returns vectors. ")
+def extract_text_and_emotions():
+    data = request.form.get('data', '')
+    if not data or "base64," not in data:
+        return jsonify({"error": "No valid data URL provided"}), 400
+
+    header, encoded = data.split("base64,", 1)
+    image = Image.open(BytesIO(base64.b64decode(encoded)))
+
+    # Perform OCR using Tesseract
+    extracted_text = pytesseract.image_to_string(image)
+    print(extracted_text)
+    try:
+        result = emotion_text_classifier(extracted_text, top_k=None, truncation=True)
+        scores = result if isinstance(result, list) and isinstance(result[0], dict) else result[0]
+        labels, confidences = _vectorize_scores(scores)
+        return confidences
+
+    except Exception as e:
+        print(f"[ERROR] classification failed: {e}")
+        return [0.0 for _ in range(len(EMOTION_LABEL_ORDER))]
+
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
 
 @emotions.post("/extract/emotions_text")
 @emotions.doc(summary="Emotions endpoint that extract emotions from text")
