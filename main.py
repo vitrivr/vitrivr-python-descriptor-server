@@ -26,8 +26,7 @@ def register_modules():
     app.register_blueprint(dino_v2)
     app.register_blueprint(ocr)
     app.register_blueprint(asr_whisper)
-
-    #app.register_blueprint(emotions)
+    app.register_blueprint(emotions)
 
 
 def entrypoint(host, port, args):

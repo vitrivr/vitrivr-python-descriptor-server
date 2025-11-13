@@ -1,20 +1,23 @@
 import base64
 from collections import defaultdict
 from io import BytesIO
-
 from PIL import Image
 import cv2
 from deepface import DeepFace
-from transformers import pipeline
+from transformers import *
 import torch
 from apiflask import APIBlueprint
 from flask import request, jsonify
 import numpy as np
 import pytesseract
 import tempfile
+import librosa
 
-emotions = APIBlueprint('emotions', __name__)
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+emotions = APIBlueprint('emotions', __name__)
+feature_extractor = AutoFeatureExtractor.from_pretrained("r-f/wav2vec-english-speech-emotion-recognition")
+model = AutoModelForAudioClassification.from_pretrained("r-f/wav2vec-english-speech-emotion-recognition").to(device)
+model.eval()
 emotion_text_classifier = pipeline("sentiment-analysis", model="michellejieli/emotion_text_classifier")
 emotion_face_classifier = pipeline("image-classification", model="trpakov/vit-face-expression")
 
@@ -107,7 +110,7 @@ def detect_faces_and_get_emotion():
                 faces = DeepFace.extract_faces(img_path=tmp.name, detector_backend="retinaface", enforce_detection=True)
             except Exception as e:
                 print(f"[ERROR] DeepFace found no face on {tmp.name}: {e}")
-                return [0.0 for _ in range(len(EMOTION_LABEL_ORDER))]
+                return [0.0 for _ in range(len(EMOTION_LABEL_ORDER))], 200
 
             img_bgr = cv2.imread(tmp.name)
             if img_bgr is None:
@@ -172,24 +175,50 @@ def extract_text_and_emotions():
         return jsonify({'error': str(e)}), 500
 
 
-@emotions.post("/extract/emotions_text")
-@emotions.doc(summary="Emotions endpoint that extract emotions from text")
-def extract_emotions_from_text():
+
+@emotions.post("/extract/emotions_sound")
+@emotions.doc(summary="Endpoint that extracts emotions from audio sent as a data URL and returns a vector in EMOTION_LABEL_ORDER.")
+def extract_emotions_from_sound():
     data = request.form.get("data", "")
-    print(f"data: {data}")
-    try:
-        raw = _safe_decode_data_url(data, "utf-8,")
-        text = raw.decode("utf-8")
-    except Exception as e:
-        print(f"[ERROR] Could not base64 encode text: {e}")
-        return [0.0 for _ in range(len(EMOTION_LABEL_ORDER))]
+    if not data or "base64," not in data:
+        return jsonify({"error": "No valid data URL provided"}), 400
 
     try:
-        result = emotion_text_classifier(text, top_k=None, truncation=True)
-        scores = result if isinstance(result, list) and isinstance(result[0], dict) else result[0]
-        labels, confidences = _vectorize_scores(scores)
-        return confidences
+        raw = _safe_decode_data_url(data, "base64,")
+        if not raw:
+            return jsonify({"error": "Empty audio payload"}), 400
+
+        with tempfile.NamedTemporaryFile(suffix=".bin", delete=True) as tmp:
+            tmp.write(raw)
+            tmp.flush()
+            audio, rate = librosa.load(tmp.name, sr=16000, mono=True)
+
+        if audio is None or audio.size == 0:
+            return jsonify({"error": "Decoded audio is empty"}), 422
+
+        max_len = 30 * 16000
+        if audio.shape[0] > max_len:
+            audio = audio[:max_len]
+
+        inputs = feature_extractor(
+            audio, sampling_rate=16000, return_tensors="pt", padding=True
+        )
+        inputs = {k: v.to(device) for k, v in inputs.items()}
+
+        with torch.no_grad():
+            outputs = model(**inputs)
+            logits = outputs.logits
+            probs = torch.nn.functional.softmax(logits, dim=-1)[0].tolist()
+
+        id2label = getattr(model.config, "id2label", {})
+        label_score_dicts = []
+        for idx, p in enumerate(probs):
+            raw_lbl = id2label.get(idx, str(idx))
+            label_score_dicts.append({"label": raw_lbl, "score": float(p)})
+
+        labels, confidences = _vectorize_scores(label_score_dicts)
+        return jsonify(confidences), 200
 
     except Exception as e:
-        print(f"[ERROR] classification failed: {e}")
-        return [0.0 for _ in range(len(EMOTION_LABEL_ORDER))]
+        print(f"[ERROR] emotions_sound failed: {e}")
+        return jsonify({"error": f"emotions_sound failed: {e}"}), 422
