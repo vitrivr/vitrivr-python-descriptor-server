@@ -39,8 +39,8 @@ def dino_image():
         print(f"Error decoding image: {e}")
         return "[]"
 
-    transformed_img = transform_image(image)[:3].unsqueeze(0)
-    feature = dino_model(transformed_img).detach().numpy().flatten().tolist()
+    transformed_img = transform_image(image)[:3].unsqueeze(0).to(device)
+    feature = dino_model(transformed_img).detach().cpu().numpy().flatten().tolist()
     gc.collect()
 
     return feature
