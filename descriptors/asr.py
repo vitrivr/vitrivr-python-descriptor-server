@@ -1,10 +1,12 @@
 import base64
 import io
-import gc
+import traceback
+import threading
 import torch
 import whisper
 import soundfile as sf
 import numpy as np
+import librosa
 from urllib.parse import unquote
 from flask import request, jsonify
 from apiflask import APIBlueprint
@@ -12,54 +14,63 @@ from apiflask import APIBlueprint
 asr_whisper = APIBlueprint('asr_whisper', __name__)
 
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-# Choose model: tiny | base | small | medium | large
 whisper_model = whisper.load_model("small", device=device)
 
+# global lock to make whisper thread-safe
+whisper_lock = threading.Lock()
+
+@torch.inference_mode()
 @asr_whisper.post("/extract/asr")
 @asr_whisper.doc(summary="Extracts text from a base64-encoded WAV audio file using OpenAI Whisper ASR.")
 def extract_asr():
-    """
-    ASR endpoint that receives base64 (possibly URL-encoded) WAV data,
-    decodes it, runs Whisper transcription, and returns extracted text.
-    """
-    # Retrieve and decode 'data' field 
     raw_data = request.form.get("data", "")
-    data = unquote(raw_data)  # handle URL-encoded input like data%3Aaudio%2Fwav%3Bbase64%2C...
+    data = unquote(raw_data)
 
-    # print(data)
     if not data or "base64," not in data:
         return jsonify({"error": "Missing or invalid base64 audio data"}), 400
 
     try:
-        # Decode base64 
         header, encoded = data.split("base64,", 1)
         audio_bytes = base64.b64decode(encoded)
 
-        # Read audio bytes into float32 numpy array 
         audio_file = io.BytesIO(audio_bytes)
         waveform, sample_rate = sf.read(audio_file)
 
-        # Convert dtype (Whisper requires float32)
+        waveform = np.asarray(waveform)
+
+        # mono
+        if waveform.ndim == 2:
+            waveform = waveform.mean(axis=1)
+        elif waveform.ndim != 1:
+            raise ValueError(f"Unexpected audio shape: {waveform.shape}")
+
+        # float32
         if waveform.dtype != np.float32:
             waveform = waveform.astype(np.float32)
 
-        # Resample to 16kHz if necessary 
+        # resample to 16kHz
         if sample_rate != 16000:
-            import librosa
-            waveform = librosa.resample(waveform.T, orig_sr=sample_rate, target_sr=16000)
-            if waveform.ndim > 1:
-                waveform = np.mean(waveform, axis=0)  # Convert stereo to mono
+            waveform = librosa.resample(
+                waveform,
+                orig_sr=sample_rate,
+                target_sr=16000,
+            )
 
-        # Transcribe with Whisper 
-        result = whisper_model.transcribe(waveform)
+        fp16 = (device.type == "cuda")
+
+        #  one thread calls Whisper at a time
+        with whisper_lock:
+            result = whisper_model.transcribe(waveform, fp16=fp16)
+
         text = result.get("text", "").strip()
 
-        gc.collect()
         return jsonify({
             "text": text,
-            "language": result.get("language", None),
-            "segments": result.get("segments", None)
+            "language": result.get("language"),
+            "segments": result.get("segments"),
         })
 
     except Exception as e:
+        print("ERROR in /extract/asr:")
+        traceback.print_exc()
         return jsonify({"error": str(e)}), 500
