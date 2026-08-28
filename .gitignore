@@ -351,3 +351,10 @@ $RECYCLE.BIN/
 *.lnk
 
 # End of https://www.toptal.com/developers/gitignore/api/git,python,pycharm+all,macos,windows,linux
+
+# Downloaded model repositories and weights
+models/AdaFace/
+yolo*.pt
+
+# Biometric enrollment data must remain local
+face-gallery/
