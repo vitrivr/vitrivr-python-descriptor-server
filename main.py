@@ -17,7 +17,8 @@ from descriptors.dino_v2 import dino_v2
 from descriptors.adaface import adaface
 from descriptors.yolo_adaface_forward import yolo_adaface_forward
 from descriptors.yolo_adaface_two_pass import yolo_adaface_two_pass
-
+from descriptors.ocr import ocr
+from descriptors.asr import asr_whisper
 
 # specify here all modules, that will be needed for feature extraction server
 def register_modules():
@@ -26,6 +27,8 @@ def register_modules():
     app.register_blueprint(adaface)
     app.register_blueprint(yolo_adaface_forward)
     app.register_blueprint(yolo_adaface_two_pass)
+    app.register_blueprint(ocr)
+    app.register_blueprint(asr_whisper)
     #app.register_blueprint(dino_v2)
 
 
