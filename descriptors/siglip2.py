@@ -12,6 +12,8 @@ from apiflask import APIBlueprint
 from flask import jsonify, request
 from PIL import Image, UnidentifiedImageError
 
+from descriptors.image_batch import decode_image_batch, encode_images
+
 
 siglip2 = APIBlueprint('siglip2', __name__)
 _model_lock = Lock()
@@ -54,10 +56,18 @@ def siglip2_image():
         return jsonify(error='Expected an image encoded as a base64 data URL'), 400
 
     model, preprocess, _, device = _get_components()
-    with torch.inference_mode():
-        features = model.encode_image(preprocess(image).unsqueeze(0).to(device))
-        features = torch.nn.functional.normalize(features, dim=-1)
-    return jsonify(features.float().cpu().flatten().tolist())
+    return jsonify(encode_images([image], model, preprocess, device)[0])
+
+
+@siglip2.post('/extract/siglip2_image_batch')
+@siglip2.doc(summary='SigLIP 2 image embeddings for an ordered JSON array of image data URLs')
+def siglip2_image_batch():
+    try:
+        images = decode_image_batch(request.get_json(silent=True))
+    except ValueError as exc:
+        return jsonify(error=str(exc)), 400
+    model, preprocess, _, device = _get_components()
+    return jsonify(encode_images(images, model, preprocess, device))
 
 
 @siglip2.post('/extract/siglip2_text')
