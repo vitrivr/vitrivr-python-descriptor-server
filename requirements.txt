@@ -18,6 +18,7 @@ deepface==0.0.95
 tf-keras
 librosa==0.11.0
 openai-whisper
+faster-whisper==1.2.1
 soundfile>=0.12.1
 librosa>=0.10.0
 numba>=0.58.0
