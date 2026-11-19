@@ -13,6 +13,7 @@ def health():
 # import necessary modules
 from descriptors.open_clip_lion_text import open_clip_lion_text
 from descriptors.open_clip_lion_image import open_clip_lion_image
+from descriptors.siglip2 import siglip2
 from descriptors.dino_v2 import dino_v2
 from descriptors.adaface import adaface
 from descriptors.yolo_adaface_forward import yolo_adaface_forward
@@ -24,6 +25,7 @@ from descriptors.asr import asr_whisper
 def register_modules():
     app.register_blueprint(open_clip_lion_text)
     app.register_blueprint(open_clip_lion_image)
+    app.register_blueprint(siglip2)
     app.register_blueprint(adaface)
     app.register_blueprint(yolo_adaface_forward)
     app.register_blueprint(yolo_adaface_two_pass)

@@ -63,6 +63,47 @@ Response:
 }
 ```
 
+## SigLIP 2 endpoints
+
+SigLIP 2 is enabled in `main.py` for image ingestion and image or text queries.
+Both endpoints accept URL-encoded forms and return a JSON array of
+L2-normalized floats in the same embedding space.
+
+```bash
+curl --silent http://localhost:8888/extract/siglip2_image \
+  --data-urlencode "data=data:image/jpeg;base64,$IMAGE_BASE64" | jq
+
+TEXT="a person wearing a red jacket"
+TEXT_BASE64="$(printf '%s' "$TEXT" | base64 | tr -d '\n')"
+curl --silent http://localhost:8888/extract/siglip2_text \
+  --data-urlencode "data=data:text/plain;base64,$TEXT_BASE64" | jq
+```
+
+The text endpoint also accepts the CLIP client's
+`data:text/plain;utf-8,<base64>` format. Missing or malformed data returns HTTP
+400. Model loading errors remain server errors.
+
+The default model is `hf-hub:timm/ViT-B-16-SigLIP2`, which returns 768 values.
+It uses the existing OpenCLIP dependency and requires `timm>=1.0.15`.
+The image and text endpoints share one model, downloaded and loaded on the
+first valid request. CUDA is used when available, otherwise CPU.
+Set `SIGLIP2_MODEL` to another OpenCLIP-compatible SigLIP 2 model to override
+the default; use the same model for ingestion and queries.
+
+Configure the vitrivr schema field with:
+
+```json
+{
+  "factory": "SigLip2",
+  "parameters": {
+    "host": "http://localhost:8888",
+    "dimension": "768"
+  }
+}
+```
+
+Set `dimension` to the deployed model's output size if you change models.
+
 ## CLIP and DINOv2 endpoints
 
 The CLIP descriptors are enabled. DINOv2 is implemented, but its blueprint
