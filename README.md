@@ -478,3 +478,7 @@ AdaFace identities from `FACE_GALLERY_DIR` are global. Body-ReID observations
 are scoped to one stream because clothing can change between videos. Stream
 state is held in server memory and is not shared between multiple server
 processes or replicas.
+
+### Batch image embeddings
+
+`POST /extract/clip_image_batch` and `POST /extract/siglip2_image_batch` accept JSON in the form `{"images": ["data:image/png;base64,..."]}`. Send 1–32 image data URLs. The response is a JSON array of normalized vectors in the same order as the inputs. An invalid image returns HTTP 400 with its input index. The individual image and text endpoints remain available.
